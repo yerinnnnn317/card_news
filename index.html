@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>짤·카드 스튜디오 (카드 1~5 통합본)</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { padding: 20px; max-width: 1200px; margin: 0 auto; background: #f8f9fa; color: #333; }
+    h1 { margin-bottom: 20px; }
+    .layout { display: flex; gap: 20px; flex-wrap: wrap; }
+    .panel { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; flex: 1; min-width: 320px; }
+    .control-group { margin-bottom: 15px; }
+    .control-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    input[type="text"], select, textarea, button { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    textarea { height: 70px; resize: vertical; }
+    .inline-controls { display: flex; gap: 10px; align-items: center; }
+    .inline-controls input[type="range"] { flex: 1; }
+    .btn-group { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .btn-group button { flex: 1; min-width: 80px; background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .btn-group button:hover { background: #0056b3; }
+    .btn-group button.danger { background: #dc3545; }
+    .btn-group button.danger:hover { background: #bd2130; }
+    .btn-group button.secondary { background: #6c757d; }
+    .canvas-container { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #e9ecef; border-radius: 8px; padding: 20px; min-height: 400px; }
+    canvas { border: 2px dashed #adb5bd; max-width: 100%; height: auto; cursor: move; background: #fff; }
+    .template-list { margin-top: 15px; list-style: none; padding: 0; }
+    .template-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f1f3f5; border-radius: 4px; margin-bottom: 6px; }
+    .template-item span { font-weight: bold; font-size: 14px; }
+    .template-item div { display: flex; gap: 4px; }
+    .template-item button { width: auto; padding: 4px 8px; font-size: 12px; }
+    .credit-box { font-size: 12px; color: #666; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+  <h1>짤·카드 스튜디오</h1>
+
+  <div class="layout">
+    <!-- 왼쪽 조작 파트 -->
+    <div class="panel">
+      <!-- 카드 1: 이미지 업로드 & 예외 처리 -->
+      <div class="control-group">
+        <label>1. 이미지 업로드 (PNG, JPEG)</label>
+        <input type="file" id="imageInput" accept="image/png, image/jpeg" />
+      </div>
+
+      <!-- 카드 1 & 3: 문구 입력 및 극단 입력 대응 -->
+      <div class="control-group">
+        <label>2. 문구 입력 (줄바꿈/이모지 가능)</label>
+        <textarea id="textInput" placeholder="문구를 입력하세요">기본 문구 테스트 😀</textarea>
+      </div>
+
+      <!-- 카드 2: 세 가지 화면비 일치 -->
+      <div class="control-group">
+        <label>3. 화면비 선택 (미리보기 & 다운로드 동일)</label>
+        <select id="aspectRatioSelect">
+          <option value="1:1">1:1 (정사각형)</option>
+          <option value="4:5">4:5 (인스타그램 피드)</option>
+          <option value="9:16">9:16 (스토리/릴스)</option>
+        </select>
+      </div>
+
+      <!-- 카드 1: 스타일 조작 -->
+      <div class="control-group">
+        <label>4. 글자 크기 & 색상</label>
+        <div class="inline-controls">
+          <input type="range" id="fontSizeInput" min="10" max="150" value="40" />
+          <input type="color" id="colorInput" value="#ffffff" style="width:50px; height:35px; padding:2px;" />
+        </div>
+      </div>
+
+      <!-- 카드 1: 자유 위치 조정 -->
+      <div class="control-group">
+        <label>5. 세로 위치 조정 (드래그 가능)</label>
+        <input type="range" id="posYInput" min="0" max="100" value="80" />
+      </div>
+
+      <hr>
+
+      <!-- 카드 4: 템플릿 관리 (CRUD & localStorage) -->
+      <div class="control-group">
+        <label>6. 템플릿 저장 및 관리</label>
+        <div class="inline-controls">
+          <input type="text" id="templateNameInput" placeholder="템플릿 이름" />
+          <button type="button" id="saveTemplateBtn" style="width: 100px;">저장</button>
+        </div>
+        <ul id="templateList" class="template-list"></ul>
+      </div>
+
+      <hr>
+
+      <!-- 카드 5: JSON 내보내기/복원 & 완성본 다운로드 -->
+      <div class="control-group">
+        <label>7. JSON 데이터 백업 & 복원</label>
+        <div class="btn-group">
+          <button type="button" id="exportJsonBtn" class="secondary">JSON 내보내기</button>
+          <button type="button" onclick="document.getElementById('jsonFileInput').click();" class="secondary">JSON 가져오기</button>
+          <input type="file" id="jsonFileInput" accept=".json" style="display:none;" />
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>8. 완성 이미지 다운로드 (EXIF 메타데이터 0건)</label>
+        <div class="btn-group">
+          <button type="button" id="downloadBtn">이미지 다운로드 (.png)</button>
+        </div>
+      </div>
+
+      <!-- 카드 5: 출처 표기 영역 -->
+      <div class="control-group">
+        <label>9. 출처 / 라이선스 표기</label>
+        <input type="text" id="creditInput" placeholder="예: 본인 제작 / Unsplash (URL)" value="본인 제작" />
+        <div class="credit-box" id="creditDisplay">출처: 본인 제작</div>
+      </div>
+    </div>
+
+    <!-- 오른쪽 Canvas 미리보기 파트 -->
+    <div class="panel canvas-container">
+      <canvas id="memeCanvas" width="600" height="600"></canvas>
+      <p style="font-size:12px; color:#666; margin-top:10px;">💡 캔버스 위 글자를 직접 드래그해서 움직일 수 있습니다.</p>
+    </div>
+  </div>
+
+  <script>
+    // --- DOM 요소 참조 ---
+    const imageInput = document.getElementById('imageInput');
+    const textInput = document.getElementById('textInput');
+    const aspectRatioSelect = document.getElementById('aspectRatioSelect');
+    const fontSizeInput = document.getElementById('fontSizeInput');
+    const colorInput = document.getElementById('colorInput');
+    const posYInput = document.getElementById('posYInput');
+    const canvas = document.getElementById('memeCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const templateNameInput = document.getElementById('templateNameInput');
+    const saveTemplateBtn = document.getElementById('saveTemplateBtn');
+    const templateList = document.getElementById('templateList');
+
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const jsonFileInput = document.getElementById('jsonFileInput');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const creditInput = document.getElementById('creditInput');
+    const creditDisplay = document.getElementById('creditDisplay');
+
+    // --- 앱 상태 관리 (State) ---
+    let appState = {
+      aspectRatio: '1:1',
+      text: '기본 문구 테스트 😀',
+      fontSize: 40,
+      color: '#ffffff',
+      xRatio: 0.5,
+      yRatio: 0.8,
+      credit: '본인 제작',
+      imageDataUrl: null
+    };
+
+    let loadedImage = null;
+    let isDragging = false;
+
+    // --- 1. Canvas 렌더링 엔진 (카드 1, 2, 3) ---
+    function render() {
+      // 화면비에 맞춘 캔버스 도화지 크기 설정
+      let targetWidth = 600;
+      let targetHeight = 600;
+
+      if (appState.aspectRatio === '4:5') {
+        targetHeight = 750;
+      } else if (appState.aspectRatio === '9:16') {
+        targetHeight = 1066;
+      }
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      // 1) 배경 그리기
+      if (loadedImage) {
+        // 이미지 비율 유지 채우기 (Cover)
+        const imgRatio = loadedImage.width / loadedImage.height;
+        const canvasRatio = targetWidth / targetHeight;
+        let renderW, renderH, offsetX, offsetY;
+
+        if (imgRatio > canvasRatio) {
+          renderH = targetHeight;
+          renderW = targetHeight * imgRatio;
+          offsetX = (targetWidth - renderW) / 2;
+          offsetY = 0;
+        } else {
+          renderW = targetWidth;
+          renderH = targetWidth / imgRatio;
+          offsetX = 0;
+          offsetY = (targetHeight - renderH) / 2;
+        }
+        ctx.drawImage(loadedImage, offsetX, offsetY, renderW, renderH);
+      } else {
+        ctx.fillStyle = '#cccccc';
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+        ctx.fillStyle = '#666666';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('PNG/JPEG 이미지를 업로드해 주세요', targetWidth / 2, targetHeight / 2);
+      }
+
+      // 2) 문구 렌더링 (줄바꿈 & 이모지 지원 - 카드 3)
+      if (appState.text && appState.text.trim() !== '') {
+        const lines = appState.text.split('\n');
+        const fontSize = parseInt(appState.fontSize, 10);
+        const lineHeight = fontSize * 1.2;
+
+        ctx.font = `bold ${fontSize}px sans-serif, "Apple Color Emoji", "Segoe UI Emoji"`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const baseX = targetWidth * appState.xRatio;
+        const baseY = targetHeight * appState.yRatio;
+
+        // 여러 줄의 전체 높이 중앙 정렬
+        const startY = baseY - ((lines.length - 1) * lineHeight) / 2;
+
+        lines.forEach((line, index) => {
+          const currentY = startY + (index * lineHeight);
+          
+          // 검은 테두리
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = Math.max(2, fontSize / 8);
+          ctx.strokeText(line, baseX, currentY);
+
+          // 본래 색상
+          ctx.fillStyle = appState.color;
+          ctx.fillText(line, baseX, currentY);
+        });
+      }
+
+      creditDisplay.textContent = `출처: ${appState.credit || '미기재'}`;
+    }
+
+    // --- 2. 이미지 업로드 & 예외 처리 (카드 1 T03-C04, C05, C09, C10) ---
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const validTypes = ['image/png', 'image/jpeg'];
+      if (!validTypes.includes(file.type)) {
+        alert('지원하지 않는 파일 형식입니다. PNG 또는 JPEG 파일만 업로드해 주세요.');
+        imageInput.value = ''; // input 초기화 (기존 state 보존 - C09)
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          loadedImage = img;
+          appState.imageDataUrl = event.target.result;
+          render();
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // --- 3. 실시간 UI 이벤트 바인딩 (카드 1 T03-C06~C08) ---
+    textInput.addEventListener('input', (e) => { appState.text = e.target.value; render(); });
+    aspectRatioSelect.addEventListener('change', (e) => { appState.aspectRatio = e.target.value; render(); });
+    fontSizeInput.addEventListener('input', (e) => { appState.fontSize = e.target.value; render(); });
+    colorInput.addEventListener('input', (e) => { appState.color = e.target.value; render(); });
+    posYInput.addEventListener('input', (e) => { appState.yRatio = e.target.value / 100; render(); });
+    creditInput.addEventListener('input', (e) => { appState.credit = e.target.value; render(); });
+
+    // --- 4. 드래그로 글자 위치 변경 (카드 1) ---
+    function updateDragPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      if (clientX === undefined || clientY === undefined) return;
+
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      appState.xRatio = Math.max(0, Math.min(1, x / rect.width));
+      appState.yRatio = Math.max(0, Math.min(1, y / rect.height));
+      posYInput.value = Math.round(appState.yRatio * 100);
+      render();
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isDragging = true; updateDragPos(e); });
+    window.addEventListener('mousemove', (e) => { if (isDragging) updateDragPos(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('touchstart', (e) => { isDragging = true; updateDragPos(e); });
+    window.addEventListener('touchmove', (e) => { if (isDragging) updateDragPos(e); });
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    // --- 5. 템플릿 CRUD & localStorage (카드 4 T03-C17~C21) ---
+    const STORAGE_KEY = 'MEME_STUDIO_TEMPLATES';
+
+    function getTemplates() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    }
+
+    function saveTemplates(templates) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+      renderTemplateList();
+    }
+
+    function renderTemplateList() {
+      const templates = getTemplates();
+      templateList.innerHTML = '';
+      templates.forEach((item) => {
+        const li = document.createElement('li');
+        li.className = 'template-item';
+        li.innerHTML = `
+          <span>${item.name}</span>
+          <div>
+            <button onclick="loadTemplate('${item.id}')">불러오기</button>
+            <button onclick="updateTemplate('${item.id}')">수정</button>
+            <button class="danger" onclick="deleteTemplate('${item.id}')">삭제</button>
+          </div>
+        `;
+        templateList.appendChild(li);
+      });
+    }
+
+    saveTemplateBtn.addEventListener('click', () => {
+      const name = templateNameInput.value.trim() || `템플릿 ${Date.now()}`;
+      const templates = getTemplates();
+      const newTemplate = {
+        id: 'tpl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4), // 고유 ID 사용 (C21 버그 방지)
+        name: name,
+        state: { ...appState }
+      };
+      templates.push(newTemplate);
+      saveTemplates(templates);
+      templateNameInput.value = '';
+      alert('템플릿이 저장되었습니다.');
+    });
+
+    window.loadTemplate = function(id) {
+      const templates = getTemplates();
+      const target = templates.find(t => t.id === id);
+      if (!target) return;
+
+      appState = { ...target.state };
+      applyStateToUI();
+    };
+
+    window.updateTemplate = function(id) {
+      const templates = getTemplates();
+      const index = templates.findIndex(t => t.id === id);
+      if (index === -1) return;
+
+      templates[index].state = { ...appState };
+      saveTemplates(templates);
+      alert('템플릿이 수정되었습니다.');
+    };
+
+    window.deleteTemplate = function(id) {
+      if (!confirm('삭제하시겠습니까?')) return;
+      const templates = getTemplates().filter(t => t.id !== id);
+      saveTemplates(templates);
+    };
+
+    function applyStateToUI() {
+      textInput.value = appState.text || '';
+      aspectRatioSelect.value = appState.aspectRatio || '1:1';
+      fontSizeInput.value = appState.fontSize || 40;
+      colorInput.value = appState.color || '#ffffff';
+      posYInput.value = Math.round((appState.yRatio || 0.8) * 100);
+      creditInput.value = appState.credit || '';
+
+      if (appState.imageDataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          loadedImage = img;
+          render();
+        };
+        img.src = appState.imageDataUrl;
+      } else {
+        loadedImage = null;
+        render();
+      }
+    }
+
+    // --- 6. JSON 백업 & 검증 복원 (카드 5 T03-C22~C24) ---
+    exportJsonBtn.addEventListener('click', () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `meme_config_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+
+    jsonFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result); // T03-C23 문법 검사
+          
+          // T03-C24 필수 항목 스키마 검증
+          if (!parsed || typeof parsed !== 'object' || !('text' in parsed) || !('aspectRatio' in parsed)) {
+            throw new Error('필수 데이터 항목이 누락된 JSON입니다.');
+          }
+
+          appState = { ...parsed };
+          applyStateToUI();
+          alert('JSON 데이터를 정상적으로 불러왔습니다.');
+        } catch (err) {
+          alert(`잘못된 JSON 파일입니다: ${err.message}\n기존 작업이 유지됩니다.`);
+        }
+        jsonFileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+
+    // --- 7. 이미지 다운로드 & EXIF 제거 (카드 5 T03-C25~C30) ---
+    downloadBtn.addEventListener('click', () => {
+      // Canvas의 toDataURL은 EXIF 위치 정보 메타데이터가 0건으로 자동 제거됨 (C28)
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `meme_${appState.aspectRatio.replace(':', '_')}_${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+    });
+
+    // 초기화 실행
+    renderTemplateList();
+    render();
+  </script>
+</body>
+</html>
